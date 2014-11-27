@@ -26,8 +26,10 @@ class NestedFormMixin(object):
         """
         return False
 
+
 class BaseNestedForm(NestedFormMixin, BaseForm):
     pass
+
 
 class NestedFormSetMixin(object):
     def dependency_has_changed(self):
@@ -36,8 +38,10 @@ class NestedFormSetMixin(object):
                 return True
         return False
 
+
 class BaseNestedInlineFormSet(NestedFormSetMixin, BaseInlineFormSet):
     pass
+
 
 class NestedModelFormMixin(NestedFormMixin):
     def dependency_has_changed(self):
@@ -46,6 +50,7 @@ class NestedModelFormMixin(NestedFormMixin):
         if hasattr(self, 'nested_formsets'):
             for f in self.nested_formsets:
                 return f.dependency_has_changed()
-            
+
+
 class BaseNestedModelForm(NestedModelFormMixin, ModelForm):
     pass

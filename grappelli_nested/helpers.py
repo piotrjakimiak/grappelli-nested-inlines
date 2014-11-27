@@ -1,11 +1,15 @@
-from django.contrib.admin.helpers import AdminErrorList, InlineAdminFormSet
+# -*- coding: utf-8 -*-
+from __future__ import unicode_literals
+
+from django.contrib.admin.helpers import AdminErrorList as BaseAdminErrorList, InlineAdminFormSet
 from django.utils import six
 
-class AdminErrorList(AdminErrorList):
+class AdminErrorList(BaseAdminErrorList):
     """
     Stores all errors for the form/formsets in an add/change stage view.
     """
     def __init__(self, form, inline_formsets):
+        super(BaseAdminErrorList, self).__init__()
         if form.is_bound:
             self.extend(form.errors.values())
             for inline_formset in inline_formsets:

@@ -1,18 +1,19 @@
+# -*- coding: utf-8 -*-
+from __future__ import unicode_literals
+
 from django import VERSION as DJANGO_VERSION
 from django.contrib.admin.options import (ModelAdmin, InlineModelAdmin,
-    csrf_protect_m, models, transaction, all_valid,
+    csrf_protect_m, models, all_valid,
     PermissionDenied, unquote, escape, Http404, reverse)
 # Fix to make Django 1.5 compatible, maintain backwards compatibility
-try:
-    from django.contrib.admin.options import force_unicode
-except ImportError:
-    from django.utils.encoding import force_text as force_unicode
+from django.utils.encoding import force_text
 
 from django.contrib.admin.helpers import InlineAdminFormSet, AdminForm
 from django.utils.translation import ugettext as _
 
 from grappelli_nested.forms import BaseNestedModelForm, BaseNestedInlineFormSet
 from grappelli_nested.helpers import AdminErrorList
+
 
 class NestedModelAdmin(ModelAdmin):
     form = BaseNestedModelForm
@@ -78,11 +79,11 @@ class NestedModelAdmin(ModelAdmin):
                                     save_as_new="_saveasnew" in request.POST,
                                     instance=form.instance,
                                     prefix=prefix,
-                                    queryset=nested_inline.queryset(request)
+                                    queryset=nested_inline.get_queryset(request)
                                 )
                 else:
                     nested_formset = InlineFormSet(instance=form.instance,
-                                                   prefix=prefix, queryset=nested_inline.queryset(request))
+                                                   prefix=prefix, queryset=nested_inline.get_queryset(request))
                 nested_formsets.append(nested_formset)
                 if nested_inline.inlines:
                     self.add_nested_inline_formsets(request, nested_inline, nested_formset, depth=depth+1)
@@ -102,10 +103,6 @@ class NestedModelAdmin(ModelAdmin):
         for form in formset.forms:
             wrapped_nested_formsets = []
             for nested_inline, nested_formset in zip(inline.get_inline_instances(request), form.nested_formsets):
-                if form.instance.pk:
-                    instance = form.instance
-                else:
-                    instance = None
                 fieldsets = list(nested_inline.get_fieldsets(request))
                 readonly = list(nested_inline.get_readonly_fields(request))
                 prepopulated = dict(nested_inline.get_prepopulated_fields(request))
@@ -124,16 +121,16 @@ class NestedModelAdmin(ModelAdmin):
         if not all_valid(formsets):
             return False
         for formset in formsets:
-            if not formset.is_bound:
-                pass
             for form in formset:
                 if hasattr(form, 'nested_formsets'):
                     if not self.all_valid_with_nesting(form.nested_formsets):
                         return False
+                    if not form.cleaned_data and any(f.cleaned_data for fs in form.nested_formsets for f in fs):
+                        form.add_error(None, 'Rodzic nie może być pusty')
+                        return False
         return True
 
     @csrf_protect_m
-    @transaction.commit_on_success
     def add_view(self, request, form_url='', extra_context=None):
         "The 'add' admin view for this model."
         model = self.model
@@ -214,7 +211,7 @@ class NestedModelAdmin(ModelAdmin):
                 media = media + self.wrap_nested_inline_formsets(request, inline, formset)
 
         context = {
-            'title': _('Add %s') % force_unicode(opts.verbose_name),
+            'title': _('Add %s') % force_text(opts.verbose_name),
             'adminform': adminForm,
             'is_popup': "_popup" in request.REQUEST,
             'show_delete': False,
@@ -228,7 +225,6 @@ class NestedModelAdmin(ModelAdmin):
         return self.render_change_form(request, context, form_url=form_url, add=True)
 
     @csrf_protect_m
-    @transaction.commit_on_success
     def change_view(self, request, object_id, form_url='', extra_context=None):
         "The 'change' admin view for this model."
         model = self.model
@@ -240,7 +236,7 @@ class NestedModelAdmin(ModelAdmin):
             raise PermissionDenied
 
         if obj is None:
-            raise Http404(_('%(name)s object with primary key %(key)r does not exist.') % {'name': force_unicode(opts.verbose_name), 'key': escape(object_id)})
+            raise Http404(_('%(name)s object with primary key %(key)r does not exist.') % {'name': force_text(opts.verbose_name), 'key': escape(object_id)})
 
         if request.method == 'POST' and "_saveasnew" in request.POST:
             return self.add_view(request, form_url=reverse('admin:%s_%s_add' %
@@ -266,7 +262,7 @@ class NestedModelAdmin(ModelAdmin):
                     prefix = "%s-%s" % (prefix, prefixes[prefix])
                 formset = FormSet(request.POST, request.FILES,
                                   instance=new_object, prefix=prefix,
-                                  queryset=inline.queryset(request))
+                                  queryset=inline.get_queryset(request))
                 formsets.append(formset)
                 if inline.inlines:
                     self.add_nested_inline_formsets(request, inline, formset)
@@ -287,7 +283,7 @@ class NestedModelAdmin(ModelAdmin):
                 if prefixes[prefix] != 1 or not prefix:
                     prefix = "%s-%s" % (prefix, prefixes[prefix])
                 formset = FormSet(instance=obj, prefix=prefix,
-                                  queryset=inline.queryset(request))
+                                  queryset=inline.get_queryset(request))
                 formsets.append(formset)
                 if inline.inlines:
                     self.add_nested_inline_formsets(request, inline, formset)
@@ -311,7 +307,7 @@ class NestedModelAdmin(ModelAdmin):
                 media = media + self.wrap_nested_inline_formsets(request, inline, formset)
 
         context = {
-            'title': _('Change %s') % force_unicode(opts.verbose_name),
+            'title': _('Change %s') % force_text(opts.verbose_name),
             'adminform': adminForm,
             'object_id': object_id,
             'original': obj,
@@ -324,6 +320,7 @@ class NestedModelAdmin(ModelAdmin):
         }
         context.update(extra_context or {})
         return self.render_change_form(request, context, change=True, obj=obj, form_url=form_url)
+
 
 class NestedInlineModelAdmin(InlineModelAdmin):
     inlines = []
@@ -352,8 +349,10 @@ class NestedInlineModelAdmin(InlineModelAdmin):
         for inline in self.get_inline_instances(request, obj):
             yield inline.get_formset(request, obj)
 
+
 class NestedStackedInline(NestedInlineModelAdmin):
     template = 'admin/edit_inline/stacked.html'
+
 
 class NestedTabularInline(NestedInlineModelAdmin):
     template = 'admin/edit_inline/tabular.html'
