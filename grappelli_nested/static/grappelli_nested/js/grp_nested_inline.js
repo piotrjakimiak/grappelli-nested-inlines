@@ -92,7 +92,7 @@
     };
 
     addButtonHandler = function(elem, options) {
-        elem.bind("click", function() {
+        elem.unbind('click').bind("click", function() {
             var inline = elem.closest(".grp-group"),
                 totalForms = inline.find("#id_" + options.prefix + "-TOTAL_FORMS"),
                 maxForms = inline.find("#id_" + options.prefix + "-MAX_NUM_FORMS"),
@@ -126,7 +126,7 @@
     };
 
     removeButtonHandler = function(elem, options) {
-        elem.bind("click", function() {
+        elem.unbind("click").bind("click", function() {
             var inline = elem.parents(".grp-group"),
                 form = $(this).parents("." + options.formCssClass).first(),
                 totalForms = inline.find("#id_" + options.prefix + "-TOTAL_FORMS"),
@@ -155,7 +155,7 @@
     };
 
     deleteButtonHandler = function(elem, options) {
-        elem.bind("click", function() {
+        elem.unbind("click").bind("click", function() {
             var deleteInput = $(this).prev(),
                 form = $(this).parents("." + options.formCssClass).first();
             // callback

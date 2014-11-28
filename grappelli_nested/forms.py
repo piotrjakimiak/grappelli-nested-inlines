@@ -40,7 +40,18 @@ class NestedFormSetMixin(object):
 
 
 class BaseNestedInlineFormSet(NestedFormSetMixin, BaseInlineFormSet):
-    pass
+     """text"""
+     @property
+     def empty_form(self):
+         form = self.form(
+                 auto_id=self.auto_id,
+                 prefix=self.add_prefix('__prefix__'),
+                 empty_permitted=True,
+                 )
+         if hasattr(self, '_extra_nested_formsets'):
+             form.nested_formsets = self._extra_nested_formsets
+         self.add_fields(form, None)
+         return form
 
 
 class NestedModelFormMixin(NestedFormMixin):

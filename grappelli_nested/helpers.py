@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-from django.contrib.admin.helpers import AdminErrorList as BaseAdminErrorList, InlineAdminFormSet
+from django.contrib.admin.helpers import AdminErrorList as BaseAdminErrorList, InlineAdminFormSet as BaseInlineAdminFormset
 from django.utils import six
+
+class InlineAdminFormSet(BaseInlineAdminFormset):
+    pass
 
 class AdminErrorList(BaseAdminErrorList):
     """
@@ -29,3 +32,5 @@ class AdminErrorList(BaseAdminErrorList):
             if hasattr(form, 'nested_formsets'):
                 for fs in form.nested_formsets:
                     self._add_formset_recursive(fs)
+
+

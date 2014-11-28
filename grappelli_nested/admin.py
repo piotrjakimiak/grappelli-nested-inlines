@@ -8,11 +8,11 @@ from django.contrib.admin.options import (ModelAdmin, InlineModelAdmin,
 # Fix to make Django 1.5 compatible, maintain backwards compatibility
 from django.utils.encoding import force_text
 
-from django.contrib.admin.helpers import InlineAdminFormSet, AdminForm
+from django.contrib.admin.helpers import AdminForm
 from django.utils.translation import ugettext as _
 
 from grappelli_nested.forms import BaseNestedModelForm, BaseNestedInlineFormSet
-from grappelli_nested.helpers import AdminErrorList
+from grappelli_nested.helpers import InlineAdminFormSet, AdminErrorList
 
 
 class NestedModelAdmin(ModelAdmin):
@@ -88,6 +88,14 @@ class NestedModelAdmin(ModelAdmin):
                 if nested_inline.inlines:
                     self.add_nested_inline_formsets(request, nested_inline, nested_formset, depth=depth+1)
             form.nested_formsets = nested_formsets
+        formset._extra_nested_formsets = []
+        for nested_inline in inline.get_inline_instances(request):
+            InlineFormSet = nested_inline.get_formset(request, None)
+            formset._extra_nested_formsets.append(InlineFormSet(
+                instance=None,
+                prefix = "%s-%s" % (formset.empty_form.prefix, InlineFormSet.get_default_prefix()),
+                queryset=nested_inline.get_queryset(request))
+            )
 
     def wrap_nested_inline_formsets(self, request, inline, formset):
         """wraps each formset in a helpers.InlineAdminFormset.
@@ -113,6 +121,15 @@ class NestedModelAdmin(ModelAdmin):
                 if nested_inline.inlines:
                     media = get_media(self.wrap_nested_inline_formsets(request, nested_inline, nested_formset))
             form.nested_formsets = wrapped_nested_formsets
+        wrapped_nested_formsets = []
+        for nested_inline, nested_formset in zip(inline.get_inline_instances(request), formset._extra_nested_formsets):
+            fieldsets = list(nested_inline.get_fieldsets(request))
+            readonly = list(nested_inline.get_readonly_fields(request))
+            prepopulated = dict(nested_inline.get_prepopulated_fields(request))
+            wrapped_nested_formset = InlineAdminFormSet(nested_inline, nested_formset,
+                fieldsets, prepopulated, readonly, model_admin=self)
+            wrapped_nested_formsets.append(wrapped_nested_formset)
+        formset._extra_nested_formsets = wrapped_nested_formsets
         return media
 
     def all_valid_with_nesting(self, formsets):
@@ -187,7 +204,7 @@ class NestedModelAdmin(ModelAdmin):
                 if prefixes[prefix] != 1 or not prefix:
                     prefix = "%s-%s" % (prefix, prefixes[prefix])
                 formset = FormSet(instance=self.model(), prefix=prefix,
-                                  queryset=inline.queryset(request))
+                                  queryset=inline.get_queryset(request))
                 formsets.append(formset)
                 if inline.inlines:
                     self.add_nested_inline_formsets(request, inline, formset)
